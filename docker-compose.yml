@@ -1,9 +1,32 @@
 version: "3.8"
+
 services:
+  # Traefik Reverse Proxy
+  traefik:
+    image: traefik:v2.10  # Using v2.10 for stability; v3.3.4 may have breaking changes
+    command:
+      - "--api.insecure=true"  # Dashboard access (disable in production)
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.email=preciousdipe@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/traefik-data/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik-data:/traefik-data
+
+  # Frontend Service (Vue.js)
   frontend:
     build: ./frontend
     ports:
-      - "8080:8080"
+      - "8085:8080"
     depends_on:
       - auth-api
       - todos-api
@@ -11,18 +34,31 @@ services:
     environment:
       - AUTH_API_ADDRESS=${AUTH_API_ADDRESS}
       - TODOS_API_ADDRESS=${TODOS_API_ADDRESS}
+    labels:
+      - "traefik.http.routers.frontend.rule=Host(`hngtodoapp.mooo.com`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
 
+  # Auth API (Go)
   auth-api:
     build: ./auth-api
     ports:
       - "8081:8081"
-
     depends_on:
       - redis
     environment:
-    - JWT_SECRET=${JWT_SECRET}
-    - USERS_API_ADDRESS=${USERS_API_ADDRESS}
+      - JWT_SECRET=${JWT_SECRET}
+      - USERS_API_ADDRESS=${USERS_API_ADDRESS}
+    labels:
+      - "traefik.http.routers.auth.rule=Host(`auth.hngtodoapp.mooo.com`)"
+      - "traefik.http.routers.auth.entrypoints=websecure"
+      - "traefik.http.routers.auth.tls=true"
+      - "traefik.http.routers.auth.tls.certresolver=myresolver"
+      - "traefik.http.middlewares.auth-api-rewrite.replacepath.path=/login"
+      - "traefik.http.routers.auth-api.middlewares=auth-api-rewrite"
 
+  # Todos API (Node.js)
   todos-api:
     build: ./todos-api
     ports:
@@ -31,17 +67,29 @@ services:
       - redis
     environment:
       - JWT_SECRET=${JWT_SECRET}
-      - REDIS_PORT=${REDIS_PORT}
       - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
       - REDIS_CHANNEL=${REDIS_CHANNEL}
+    labels:
+      - "traefik.http.routers.todos.rule=Host(`todos.hngtodoapp.mooo.com`)"
+      - "traefik.http.routers.todos.entrypoints=websecure"
+      - "traefik.http.routers.todos.tls=true"
+      - "traefik.http.routers.todos.tls.certresolver=myresolver"
 
+  # Users API (Java/Spring Boot)
   users-api:
     build: ./users-api
     ports:
       - "8083:8083"
     environment:
       - JWT_SECRET=${JWT_SECRET}
+    labels:
+      - "traefik.http.routers.users.rule=Host(`users.hngtodoapp.mooo.com`)"
+      - "traefik.http.routers.users.entrypoints=websecure"
+      - "traefik.http.routers.users.tls=true"
+      - "traefik.http.routers.users.tls.certresolver=myresolver"
 
+  # Log Message Processor (Python)
   log-processor:
     build: ./log-message-processor
     depends_on:
@@ -51,6 +99,7 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_CHANNEL=${REDIS_CHANNEL}
 
+  # Redis Queue
   redis:
     image: redis:alpine
     ports:

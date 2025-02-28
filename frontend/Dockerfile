@@ -10,6 +10,9 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
+# Install a lightweight server to serve the built app
+RUN npm install -g serve
+
 # Copy the entire project
 COPY . .
 
@@ -19,5 +22,5 @@ RUN npm run build
 # Expose the port the app will run on
 EXPOSE 8080
 
-# Run the application in development mode
-CMD ["npm", "run", "dev"]
+# Serve the built app
+CMD ["serve", "-s", "dist", "-l", "8080"]

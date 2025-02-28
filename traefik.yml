@@ -1,0 +1,120 @@
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+certificatesResolvers:
+  default:
+    acme:
+      email: preciousdipe@gmail.com
+      storage: /acme.json
+      onHostRule: true
+  myresolver:
+    acme:
+      email: preciousdipe@gmail.com
+      storage: /acme.json
+      onHostRule: true
+
+middlewares:
+  frontend-strip-prefix:
+    stripPrefix:
+      prefixes:
+        - /
+  auth-strip-prefix:
+    stripPrefix:
+      prefixes:
+        - /api/auth
+  redirect-to-https:
+    redirectScheme:
+      scheme: https
+      permanent: true
+
+services:
+  frontend:
+    loadBalancer:
+      servers:
+        - url: http://frontend:80
+  auth_api:
+    loadBalancer:
+      servers:
+        - url: http://auth_api:8081
+  todos:
+    loadBalancer:
+      servers:
+        - url: http://todos_api:8082
+  users:
+    loadBalancer:
+      servers:
+        - url: http://users_api:8083
+  ignored:
+    loadBalancer:
+      servers:
+        - url: http://localhost
+
+routers:
+  http-redirect:
+    rule: HostRegexp(`{any:.*}`)
+    entryPoints:
+      - web
+    middlewares:
+      - redirect-to-https
+    service: ignored
+
+  dashboard:
+    rule: Host(`traefik.hngtodoapp.mooo.com`)
+    entryPoints:
+      - websecure
+    service: api@internal
+    tls:
+      enabled: true
+      certResolver: default
+
+  frontend:
+    rule: Host(`hngtodoapp.mooo.com`) && !PathPrefix(`/api/`)
+    entryPoints:
+      - websecure
+    service: frontend
+    middlewares:
+      - frontend-strip-prefix
+    tls:
+      enabled: true
+      certResolver: default
+
+  auth_api_path:
+    rule: Host(`hngtodoapp.mooo.com`) && PathPrefix(`/api/auth`)
+    entryPoints:
+      - websecure
+    service: auth_api
+    middlewares:
+      - auth-strip-prefix
+    tls:
+      enabled: true
+      certResolver: default
+
+  auth_api_subdomain:
+    rule: Host(`auth.hngtodoapp.mooo.com`)
+    entryPoints:
+      - websecure
+    service: auth_api
+    tls:
+      enabled: true
+      certResolver: default
+
+  todos:
+    rule: Host(`todos.hngtodoapp.mooo.com`)
+    entryPoints:
+      - websecure
+    service: todos
+    tls:
+      enabled: true
+      certResolver: myresolver
+
+  users:
+    rule: Host(`users.hngtodoapp.mooo.com`)
+    entryPoints:
+      - websecure
+    service: users
+    tls:
+      enabled: true
+      certResolver: default

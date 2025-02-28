@@ -12,5 +12,8 @@ RUN pip install thriftpy2==0.4.16
 RUN pip install -r requirements.txt
 
 COPY . .
-CMD ["python", "processor.py"]
 EXPOSE 6379
+ENV REDIS_HOST=redis \
+    REDIS_PORT=6379 \
+    REDIS_CHANNEL=log_channel
+CMD ["python", "main.py"]
