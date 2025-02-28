@@ -1,26 +1,19 @@
-# Use Node.js 14 Alpine as the base image
-FROM node:14-alpine
+# Use Node.js 14 as required
+FROM node:14
 
-# Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
+# Copy package.json and package-lock.json before running npm install
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Clear npm cache and install dependencies
+RUN npm cache clean --force && npm install
 
-# Install a lightweight server to serve the built app
-RUN npm install -g serve
-
-# Copy the entire project
+# Copy the rest of the application code
 COPY . .
 
-# Build the Vue.js app
-RUN npm run build
-
-# Expose the port the app will run on
+# Expose the port
 EXPOSE 8080
 
-# Serve the built app
-CMD ["serve", "-s", "dist", "-l", "8080"]
+# Start the application
+CMD ["npm", "run", "dev"]
