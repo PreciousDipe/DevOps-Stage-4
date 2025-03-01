@@ -25,7 +25,7 @@ services:
       - web
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /letsencrypt/acme.json:/letsencrypt
+      - traefik-certificates:/etc/traefik
     labels:
       - "traefik.enable=true"
       - "traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*"
